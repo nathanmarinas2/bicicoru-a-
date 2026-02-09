@@ -24,6 +24,9 @@ const GBFS_STATION_STATUS = 'https://acoruna.publicbikesystem.net/customer/gbfs/
 const WEATHER_API = 'https://api.open-meteo.com/v1/forecast?latitude=43.3623&longitude=-8.4115&current=temperature_2m,precipitation,weather_code,wind_speed_10m';
 const POLLING_INTERVAL_MS = 5 * 60 * 1000; // 5 minutos
 
+const EMPTY_THRESHOLD = Number(process.env.EMPTY_THRESHOLD) || 5;
+const FULL_THRESHOLD = Number(process.env.FULL_THRESHOLD) || 2;
+
 // ======================== ESTADO ========================
 let stationsInfo = {};
 let previousStatus = {};
@@ -177,8 +180,8 @@ async function collectAndSend() {
             const docks = status.num_docks_available || 0;
             const capacity = info.capacity || (bikes + docks);
             const occupancyRate = capacity > 0 ? (bikes / capacity) : 0;
-            const isEmpty = bikes === 0 ? 1 : 0;
-            const isFull = docks === 0 ? 1 : 0;
+            const isEmpty = bikes < EMPTY_THRESHOLD ? 1 : 0;
+            const isFull = docks < FULL_THRESHOLD ? 1 : 0;
 
             const prevBikes = previousStatus[status.station_id] || bikes;
             const deltaBikes = bikes - prevBikes;

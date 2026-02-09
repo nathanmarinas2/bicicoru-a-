@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BiciCoruña | Risk Analytics</title>
+    
+    <!-- Fonts & Leaflet -->
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <!-- Icons -->
+    <link href="https://cdn.jsdelivr.net/npm/remixicon@3.5.0/fonts/remixicon.css" rel="stylesheet">
+
+    <style>
+        :root {
+            --bg-dark: #09090b;
+            --glass-bg: rgba(9, 9, 11, 0.85);
+            --glass-border: rgba(255, 255, 255, 0.08);
+            --text-main: #ffffff;
+            --text-muted: #a1a1aa;
+            
+            --color-critical: #ef4444; /* Red 500 */
+            --color-warning: #f59e0b;  /* Amber 500 */
+            --color-safe: #10b981;     /* Emerald 500 */
+            --color-accent: #3b82f6;   /* Blue 500 */
+        }
+        
+        * { box-sizing: border-box; }
+        
+        body { 
+            margin: 0; 
+            padding: 0; 
+            font-family: 'Outfit', sans-serif;
+            background: var(--bg-dark);
+            color: var(--text-main);
+            overflow: hidden;
+            width: 100vw;
+            height: 100vh;
+        }
+        
+        #map { 
+            height: 100%; 
+            width: 100%; 
+            z-index: 1;
+            filter: saturate(1.1) contrast(1.1); /* Pop colors */
+        }
+        
+        /* --- UI COMPONENTS --- */
+        
+        .floating-panel {
+            position: absolute;
+            top: 24px;
+            left: 24px;
+            width: 380px;
+            z-index: 1000;
+            background: var(--glass-bg);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid var(--glass-border);
+            border-radius: 24px;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+            padding: 24px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            animation: slideIn 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateX(-20px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+        
+        .header {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            border-bottom: 1px solid var(--glass-border);
+            padding-bottom: 20px;
+        }
+        
+        .logo-box {
+            width: 48px;
+            height: 48px;
+            background: linear-gradient(135deg, var(--color-critical), #b91c1c);
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 0 20px rgba(239, 68, 68, 0.3);
+        }
+        
+        .logo-box i {
+            font-size: 24px;
+            color: white;
+        }
+        
+        .title-group h1 {
+            font-size: 18px;
+            font-weight: 700;
+            margin: 0;
+            letter-spacing: -0.02em;
+            line-height: 1.2;
+        }
+        
+        .title-group p {
+            font-size: 13px;
+            color: var(--text-muted);
+            margin: 4px 0 0 0;
+            font-weight: 400;
+        }
+        
+        /* Stats Grid */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+        }
+        
+        .stat-card {
+            background: rgba(255, 255, 255, 0.03);
+            border-radius: 16px;
+            padding: 16px;
+            border: 1px solid rgba(255,255,255,0.02);
+            transition: all 0.2s ease;
+        }
+        
+        .stat-card:hover {
+            background: rgba(255, 255, 255, 0.06);
+            border-color: rgba(255, 255, 255, 0.08);
+            transform: translateY(-2px);
+        }
+        
+        .stat-label {
+            font-size: 11px;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            font-weight: 600;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        
+        .stat-value {
+            font-size: 24px;
+            font-weight: 600;
+            letter-spacing: -0.03em;
+            color: var(--text-main);
+        }
+        
+        .text-critical { color: var(--color-critical); text-shadow: 0 0 20px rgba(239, 68, 68, 0.3); }
+        .text-warning { color: var(--color-warning); }
+        
+        /* Top Offenders List */
+        .list-section {
+            background: rgba(0,0,0,0.2);
+            border-radius: 16px;
+            padding: 16px;
+            border: 1px solid var(--glass-border);
+        }
+
+        .list-header {
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: var(--text-muted);
+            font-weight: 700;
+            margin-bottom: 12px;
+            display: flex;
+            justify-content: space-between;
+        }
+        
+        .station-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 0;
+            border-bottom: 1px solid rgba(255,255,255,0.04);
+        }
+        
+        .station-item:last-child { border-bottom: none; }
+        
+        .station-name {
+            font-size: 13px;
+            font-weight: 500;
+            color: var(--text-main);
+        }
+        
+        .station-metric {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 12px;
+            font-weight: 700;
+            color: var(--color-critical);
+            background: rgba(239, 68, 68, 0.1);
+            padding: 4px 8px;
+            border-radius: 6px;
+        }
+
+        /* Legend */
+        .legend-card {
+            position: absolute;
+            bottom: 30px;
+            right: 30px;
+            width: 280px;
+            background: var(--glass-bg);
+            backdrop-filter: blur(16px);
+            border: 1px solid var(--glass-border);
+            border-radius: 20px;
+            padding: 20px;
+            z-index: 999;
+            box-shadow: 0 10px 30px -10px rgba(0,0,0,0.5);
+        }
+        
+        .gradient-bar {
+            height: 8px;
+            background: linear-gradient(to right, 
+                var(--color-safe) 0%, 
+                var(--color-warning) 30%, 
+                var(--color-critical) 70%,
+                #7f1d1d 100%
+            );
+            border-radius: 4px;
+            margin: 12px 0 8px 0;
+            position: relative;
+        }
+        
+        /* Map Markers Glow */
+        .leaflet-interactive {
+             transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        .leaflet-popup-content-wrapper {
+            background: rgba(18, 18, 24, 0.95) !important;
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 16px;
+            color: white !important;
+            box-shadow: 0 20px 40px -10px rgba(0,0,0,0.6);
+            padding: 0;
+        }
+        .leaflet-popup-tip { background: rgba(18, 18, 24, 0.95) !important; }
+        .leaflet-container a.leaflet-popup-close-button {
+            color: var(--text-muted) !important;
+            font-size: 18px !important;
+            padding: 8px !important;
+        }
+        
+    </style>
+</head>
+<body>
+
+    <div class="floating-panel">
+        <div class="header">
+            <div class="logo-box">
+                <i class="ri-fire-fill"></i>
+            </div>
+            <div class="title-group">
+                <h1>Riesgo de Servicio</h1>
+                <p>Análisis de Fallos (Stockouts)</p>
+            </div>
+        </div>
+        
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-label"><i class="ri-bar-chart-2-line"></i> Media Red</div>
+                <div class="stat-value">2.8<span style="font-size:14px; color:#666; margin-left:2px">%</span></div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label"><i class="ri-error-warning-line"></i> Puntos Críticos</div>
+                <div class="stat-value text-critical">6</div>
+            </div>
+            <div class="stat-card" style="grid-column: span 2;">
+                <div class="stat-label"><i class="ri-alarm-warning-line"></i> Peor Estación (Max Outage)</div>
+                <div class="stat-value text-critical" style="font-size:18px">Agra do Orzàn</div>
+                <div style="font-size:12px; color:#666; margin-top:4px; display:flex; gap:6px; align-items:center">
+                    <span style="width:6px; height:6px; background:var(--color-critical); border-radius:50%"></span>
+                    16.1% del tiempo sin bicis
+                </div>
+            </div>
+        </div>
+        
+        <div class="list-section">
+            <div class="list-header">
+                <span>Top 5 Críticos</span>
+                <i class="ri-arrow-down-line"></i>
+            </div>
+            
+            <div class="station-item">
+                <span class="station-name">Agra do Orzàn</span>
+                <span class="station-metric">16.1%</span>
+            </div>
+            <div class="station-item">
+                <span class="station-name">Gaiteira</span>
+                <span class="station-metric">11.7%</span>
+            </div>
+            <div class="station-item">
+                <span class="station-name">Marineda</span>
+                <span class="station-metric">10.7%</span>
+            </div>
+            <div class="station-item">
+                <span class="station-name">Parque de Santa Margarita</span>
+                <span class="station-metric">10.5%</span>
+            </div>
+            <div class="station-item">
+                <span class="station-name">Rosales III - Centro de Formación</span>
+                <span class="station-metric">10.4%</span>
+            </div>
+        </div>
+    </div>
+    
+    <div id="map"></div>
+    
+    <div class="legend-card">
+        <div class="list-header" style="margin-bottom:0">RIESGO (% TIEMPO VACÍA)</div>
+        <div class="gradient-bar"></div>
+        <div style="display:flex; justify-content:space-between; font-size:11px; color:var(--text-muted); font-weight:500">
+            <span>0% (Óptimo)</span>
+            <span>10%</span>
+            <span>20%+ (Critico)</span>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        // Init Map
+        const map = L.map('map', {
+            zoomControl: false,
+            attributionControl: false
+        }).setView([43.35807862922293, -8.410188153694527], 13);
+
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+            maxZoom: 19
+        }).addTo(map);
+
+        const stations = [{"name": "Agra do Orz\u00e0n", "lat": 43.36264, "lon": -8.4232, "total_obs": 1519, "empty_obs": 244, "capacity": 15, "empty_pct": 16.063199473337722, "hours_lost": 20.333333333333332}, {"name": "Gaiteira", "lat": 43.354245, "lon": -8.396225, "total_obs": 1520, "empty_obs": 178, "capacity": 15, "empty_pct": 11.710526315789474, "hours_lost": 14.833333333333334}, {"name": "Marineda", "lat": 43.34621646271046, "lon": -8.427290650367745, "total_obs": 1521, "empty_obs": 163, "capacity": 23, "empty_pct": 10.71663379355687, "hours_lost": 13.583333333333334}, {"name": "Parque de Santa Margarita", "lat": 43.3602003, "lon": -8.4150145, "total_obs": 1520, "empty_obs": 160, "capacity": 16, "empty_pct": 10.526315789473683, "hours_lost": 13.333333333333334}, {"name": "Rosales III - Centro de Formaci\u00f3n", "lat": 43.37361, "lon": -8.436804, "total_obs": 1520, "empty_obs": 158, "capacity": 19, "empty_pct": 10.394736842105264, "hours_lost": 13.166666666666666}, {"name": "Plaza de San Rosendo", "lat": 43.3567846, "lon": -8.4146024, "total_obs": 1521, "empty_obs": 155, "capacity": 14, "empty_pct": 10.190664036817882, "hours_lost": 12.916666666666666}, {"name": "Torre de H\u00e9rcules", "lat": 43.3833583, "lon": -8.4020407, "total_obs": 1521, "empty_obs": 127, "capacity": 15, "empty_pct": 8.349769888231426, "hours_lost": 10.583333333333334}, {"name": "Plaza de Conchi\u00f1as", "lat": 43.3615047, "lon": -8.4199767, "total_obs": 1521, "empty_obs": 124, "capacity": 13, "empty_pct": 8.152531229454306, "hours_lost": 10.333333333333334}, {"name": "Praza de Ourense", "lat": 43.3651583, "lon": -8.4053212, "total_obs": 1521, "empty_obs": 120, "capacity": 15, "empty_pct": 7.889546351084813, "hours_lost": 10.0}, {"name": "Rosales-Laba\u00f1ou", "lat": 43.37409724254996, "lon": -8.42479703248882, "total_obs": 1521, "empty_obs": 119, "capacity": 15, "empty_pct": 7.8238001314924395, "hours_lost": 9.916666666666666}, {"name": "Casa del Agua", "lat": 43.3689494, "lon": -8.4197601, "total_obs": 1520, "empty_obs": 112, "capacity": 16, "empty_pct": 7.368421052631578, "hours_lost": 9.333333333333334}, {"name": "Agrela II", "lat": 43.348314, "lon": -8.420575, "total_obs": 1520, "empty_obs": 88, "capacity": 19, "empty_pct": 5.7894736842105265, "hours_lost": 7.333333333333333}, {"name": "Parque del Agra", "lat": 43.36514, "lon": -8.421649, "total_obs": 1521, "empty_obs": 82, "capacity": 15, "empty_pct": 5.391190006574622, "hours_lost": 6.833333333333333}, {"name": "Os Castros", "lat": 43.351757, "lon": -8.389906, "total_obs": 1519, "empty_obs": 80, "capacity": 19, "empty_pct": 5.266622778143516, "hours_lost": 6.666666666666667}, {"name": "Ronda de Monte Alto", "lat": 43.3812, "lon": -8.405455, "total_obs": 1520, "empty_obs": 79, "capacity": 19, "empty_pct": 5.197368421052632, "hours_lost": 6.583333333333333}, {"name": "Plaza Indalecio Prieto", "lat": 43.378033, "lon": -8.399755, "total_obs": 1521, "empty_obs": 74, "capacity": 15, "empty_pct": 4.865220249835635, "hours_lost": 6.166666666666667}, {"name": "Ventorrillo", "lat": 43.359323, "lon": -8.422561, "total_obs": 1521, "empty_obs": 71, "capacity": 19, "empty_pct": 4.667981591058514, "hours_lost": 5.916666666666667}, {"name": "Plaza de Vigo", "lat": 43.361634, "lon": -8.407152, "total_obs": 1521, "empty_obs": 68, "capacity": 19, "empty_pct": 4.470742932281394, "hours_lost": 5.666666666666667}, {"name": "Estaci\u00f3n Tren", "lat": 43.3528011, "lon": -8.4091132, "total_obs": 1521, "empty_obs": 66, "capacity": 15, "empty_pct": 4.339250493096647, "hours_lost": 5.5}, {"name": "Plaza de Tabacos", "lat": 43.35662860324621, "lon": -8.40148645853997, "total_obs": 1521, "empty_obs": 59, "capacity": 19, "empty_pct": 3.879026955950033, "hours_lost": 4.916666666666667}, {"name": "Os Mallos-San Vicente", "lat": 43.355892, "lon": -8.408728, "total_obs": 1519, "empty_obs": 57, "capacity": 19, "empty_pct": 3.7524687294272545, "hours_lost": 4.75}, {"name": "Obelisco", "lat": 43.3673641600456, "lon": -8.403768770639042, "total_obs": 1521, "empty_obs": 57, "capacity": 23, "empty_pct": 3.7475345167652856, "hours_lost": 4.75}, {"name": "Os Mallos-Centro C\u00ecvico", "lat": 43.352332, "lon": -8.415516, "total_obs": 1520, "empty_obs": 56, "capacity": 23, "empty_pct": 3.684210526315789, "hours_lost": 4.666666666666667}, {"name": "Cantons - Alameda", "lat": 43.366957, "lon": -8.40429, "total_obs": 1520, "empty_obs": 55, "capacity": 19, "empty_pct": 3.618421052631579, "hours_lost": 4.583333333333333}, {"name": "Orillamar", "lat": 43.375706, "lon": -8.395765, "total_obs": 1521, "empty_obs": 54, "capacity": 15, "empty_pct": 3.5502958579881656, "hours_lost": 4.5}, {"name": "Puerto - Palexco", "lat": 43.3690021, "lon": -8.3988155, "total_obs": 1521, "empty_obs": 54, "capacity": 15, "empty_pct": 3.5502958579881656, "hours_lost": 4.5}, {"name": "Centro deportivo Elvi\u00f1a", "lat": 43.34181585290314, "lon": -8.414121004104622, "total_obs": 1520, "empty_obs": 52, "capacity": 19, "empty_pct": 3.421052631578948, "hours_lost": 4.333333333333333}, {"name": "Los Rosales", "lat": 43.3743246, "lon": -8.4319872, "total_obs": 1521, "empty_obs": 52, "capacity": 25, "empty_pct": 3.418803418803419, "hours_lost": 4.333333333333333}, {"name": "Expocoruna", "lat": 43.3389282, "lon": -8.411651, "total_obs": 1521, "empty_obs": 48, "capacity": 19, "empty_pct": 3.155818540433925, "hours_lost": 4.0}, {"name": "Meicende", "lat": 43.348127, "lon": -8.444042, "total_obs": 1520, "empty_obs": 42, "capacity": 23, "empty_pct": 2.763157894736842, "hours_lost": 3.5}, {"name": "Aparcamiento Matogrande", "lat": 43.34080343343825, "lon": -8.404671581745156, "total_obs": 1521, "empty_obs": 39, "capacity": 15, "empty_pct": 2.564102564102564, "hours_lost": 3.25}, {"name": "Campo de La Le\u00f1a (Plaza De Espa\u00f1a)", "lat": 43.3725483, "lon": -8.3956685, "total_obs": 1521, "empty_obs": 37, "capacity": 15, "empty_pct": 2.4326101249178174, "hours_lost": 3.0833333333333335}, {"name": "Mercado de Monte Alto-Vila de Cambre", "lat": 43.377261, "lon": -8.403303, "total_obs": 1520, "empty_obs": 35, "capacity": 23, "empty_pct": 2.302631578947368, "hours_lost": 2.9166666666666665}, {"name": "Parque de Oza", "lat": 43.351613, "lon": -8.401781, "total_obs": 1521, "empty_obs": 33, "capacity": 15, "empty_pct": 2.1696252465483234, "hours_lost": 2.75}, {"name": "Campo de Marte", "lat": 43.375696, "lon": -8.398101, "total_obs": 1521, "empty_obs": 31, "capacity": 15, "empty_pct": 2.0381328073635765, "hours_lost": 2.5833333333333335}, {"name": "Hospital Abente y Lago", "lat": 43.36874508285373, "lon": -8.390026720523842, "total_obs": 1521, "empty_obs": 27, "capacity": 15, "empty_pct": 1.7751479289940828, "hours_lost": 2.25}, {"name": "Avenida de Arteixo", "lat": 43.360755, "lon": -8.410942, "total_obs": 1520, "empty_obs": 26, "capacity": 15, "empty_pct": 1.710526315789474, "hours_lost": 2.1666666666666665}, {"name": "Aquarium", "lat": 43.3812011, "lon": -8.4099486, "total_obs": 1521, "empty_obs": 24, "capacity": 15, "empty_pct": 1.5779092702169626, "hours_lost": 2.0}, {"name": "Mirador de los Castros", "lat": 43.3539722, "lon": -8.3904889, "total_obs": 1521, "empty_obs": 23, "capacity": 19, "empty_pct": 1.5121630506245891, "hours_lost": 1.9166666666666667}, {"name": "Puerta Real", "lat": 43.3698168, "lon": -8.3957142, "total_obs": 1521, "empty_obs": 22, "capacity": 23, "empty_pct": 1.4464168310322156, "hours_lost": 1.8333333333333333}, {"name": "Maestranza", "lat": 43.37117, "lon": -8.3909125, "total_obs": 1521, "empty_obs": 16, "capacity": 19, "empty_pct": 1.051939513477975, "hours_lost": 1.3333333333333333}, {"name": "Centro C\u00edvico Monelos", "lat": 43.3493537, "lon": -8.4049558, "total_obs": 1521, "empty_obs": 14, "capacity": 15, "empty_pct": 0.9204470742932281, "hours_lost": 1.1666666666666667}, {"name": "Paseo de Los Puentes", "lat": 43.364594, "lon": -8.4157724, "total_obs": 1521, "empty_obs": 14, "capacity": 19, "empty_pct": 0.9204470742932281, "hours_lost": 1.1666666666666667}, {"name": "Forum Metropolitano", "lat": 43.355798, "lon": -8.399461, "total_obs": 1520, "empty_obs": 13, "capacity": 23, "empty_pct": 0.855263157894737, "hours_lost": 1.0833333333333333}, {"name": "Birloque", "lat": 43.340498, "lon": -8.41651, "total_obs": 1520, "empty_obs": 13, "capacity": 19, "empty_pct": 0.855263157894737, "hours_lost": 1.0833333333333333}, {"name": "Casa de Sol", "lat": 43.372345, "lon": -8.4028996, "total_obs": 1521, "empty_obs": 13, "capacity": 16, "empty_pct": 0.8547008547008548, "hours_lost": 1.0833333333333333}, {"name": "Praza de Pontevedra II", "lat": 43.366867, "lon": -8.40984, "total_obs": 1520, "empty_obs": 9, "capacity": 18, "empty_pct": 0.5921052631578948, "hours_lost": 0.75}, {"name": "Plaza De Pontevedra", "lat": 43.3680112, "lon": -8.4066505, "total_obs": 1521, "empty_obs": 9, "capacity": 29, "empty_pct": 0.591715976331361, "hours_lost": 0.75}, {"name": "Ciudad Escolar", "lat": 43.37110620280361, "lon": -8.421887669697579, "total_obs": 1521, "empty_obs": 9, "capacity": 19, "empty_pct": 0.591715976331361, "hours_lost": 0.75}, {"name": "Concordia", "lat": 43.351551, "lon": -8.394042, "total_obs": 1520, "empty_obs": 8, "capacity": 19, "empty_pct": 0.5263157894736842, "hours_lost": 0.6666666666666666}, {"name": "\u00c1gora", "lat": 43.363261912647694, "lon": -8.427038522720345, "total_obs": 1521, "empty_obs": 8, "capacity": 20, "empty_pct": 0.5259697567389875, "hours_lost": 0.6666666666666666}, {"name": "Estaci\u00f3n Autobuses", "lat": 43.353622, "lon": -8.4059565, "total_obs": 1521, "empty_obs": 8, "capacity": 15, "empty_pct": 0.5259697567389875, "hours_lost": 0.6666666666666666}, {"name": "Cuatro Caminos", "lat": 43.35662, "lon": -8.40617, "total_obs": 1520, "empty_obs": 7, "capacity": 23, "empty_pct": 0.4605263157894736, "hours_lost": 0.5833333333333334}, {"name": "Xux\u00e1n II -Lavedra", "lat": 43.337357, "lon": -8.402708, "total_obs": 1520, "empty_obs": 7, "capacity": 19, "empty_pct": 0.4605263157894736, "hours_lost": 0.5833333333333334}, {"name": "Plaza de Portugal", "lat": 43.3685842, "lon": -8.414535, "total_obs": 1520, "empty_obs": 7, "capacity": 20, "empty_pct": 0.4605263157894736, "hours_lost": 0.5833333333333334}, {"name": "Plaza Recife", "lat": 43.364695, "lon": -8.409952, "total_obs": 1521, "empty_obs": 6, "capacity": 15, "empty_pct": 0.39447731755424065, "hours_lost": 0.5}, {"name": "Lonzas", "lat": 43.347539, "lon": -8.414421, "total_obs": 1520, "empty_obs": 5, "capacity": 19, "empty_pct": 0.3289473684210526, "hours_lost": 0.4166666666666667}, {"name": "Novo Mesoiro III", "lat": 43.323367, "lon": -8.443926, "total_obs": 1520, "empty_obs": 4, "capacity": 19, "empty_pct": 0.2631578947368421, "hours_lost": 0.3333333333333333}, {"name": "Adormideras", "lat": 43.38337475533955, "lon": -8.39564819014358, "total_obs": 1521, "empty_obs": 4, "capacity": 19, "empty_pct": 0.26298487836949375, "hours_lost": 0.3333333333333333}, {"name": "Agrela III", "lat": 43.3519, "lon": -8.4319, "total_obs": 1520, "empty_obs": 3, "capacity": 19, "empty_pct": 0.19736842105263158, "hours_lost": 0.25}, {"name": "Parque de Vio\u00f1o", "lat": 43.3540185, "lon": -8.4169694, "total_obs": 1520, "empty_obs": 3, "capacity": 19, "empty_pct": 0.19736842105263158, "hours_lost": 0.25}, {"name": "Agrela", "lat": 43.35436551376532, "lon": -8.422193301049806, "total_obs": 1521, "empty_obs": 2, "capacity": 21, "empty_pct": 0.13149243918474687, "hours_lost": 0.16666666666666666}, {"name": "Parque de Eir\u00eds", "lat": 43.34467, "lon": -8.39535, "total_obs": 1521, "empty_obs": 2, "capacity": 19, "empty_pct": 0.13149243918474687, "hours_lost": 0.16666666666666666}, {"name": "Barrio de las Flores II", "lat": 43.344147, "lon": -8.401101, "total_obs": 1520, "empty_obs": 0, "capacity": 19, "empty_pct": 0.0, "hours_lost": 0.0}, {"name": " Pablo Picasso", "lat": 43.346126, "lon": -8.410817, "total_obs": 1521, "empty_obs": 0, "capacity": 19, "empty_pct": 0.0, "hours_lost": 0.0}, {"name": "Barrio de las Flores", "lat": 43.346372, "lon": -8.403369, "total_obs": 1521, "empty_obs": 0, "capacity": 23, "empty_pct": 0.0, "hours_lost": 0.0}, {"name": "Chuac", "lat": 43.345885, "lon": -8.390163, "total_obs": 1520, "empty_obs": 0, "capacity": 19, "empty_pct": 0.0, "hours_lost": 0.0}, {"name": "Cd Castrill\u00f3n", "lat": 43.349334477951, "lon": -8.398615367597959, "total_obs": 1521, "empty_obs": 0, "capacity": 15, "empty_pct": 0.0, "hours_lost": 0.0}, {"name": "Novo Mesoiro II", "lat": 43.324886, "lon": -8.436741, "total_obs": 1520, "empty_obs": 0, "capacity": 19, "empty_pct": 0.0, "hours_lost": 0.0}, {"name": "Millenium", "lat": 43.3768118, "lon": -8.423091, "total_obs": 1520, "empty_obs": 0, "capacity": 15, "empty_pct": 0.0, "hours_lost": 0.0}, {"name": "Novo Mesoiro", "lat": 43.326056379134286, "lon": -8.432357918554677, "total_obs": 1521, "empty_obs": 0, "capacity": 23, "empty_pct": 0.0, "hours_lost": 0.0}, {"name": "Monelos, Rafael Dieste", "lat": 43.3482956, "lon": -8.4018984, "total_obs": 1520, "empty_obs": 0, "capacity": 19, "empty_pct": 0.0, "hours_lost": 0.0}, {"name": "Parque de Bens", "lat": 43.364053, "lon": -8.439687, "total_obs": 1520, "empty_obs": 0, "capacity": 16, "empty_pct": 0.0, "hours_lost": 0.0}, {"name": "Palavea", "lat": 43.329469, "lon": -8.391268, "total_obs": 1521, "empty_obs": 0, "capacity": 16, "empty_pct": 0.0, "hours_lost": 0.0}, {"name": "Pedralonga - Cidade das TIC", "lat": 43.33193, "lon": -8.391112, "total_obs": 1520, "empty_obs": 0, "capacity": 19, "empty_pct": 0.0, "hours_lost": 0.0}, {"name": "San Andr\u00e9s-Cordeler\u00eda", "lat": 43.370182, "lon": -8.404372, "total_obs": 1519, "empty_obs": 0, "capacity": 19, "empty_pct": 0.0, "hours_lost": 0.0}, {"name": "San Pedro de Visma", "lat": 43.367931, "lon": -8.429594, "total_obs": 1520, "empty_obs": 0, "capacity": 19, "empty_pct": 0.0, "hours_lost": 0.0}, {"name": "Xux\u00e1n I-Eiris", "lat": 43.339529, "lon": -8.398775, "total_obs": 1520, "empty_obs": 0, "capacity": 19, "empty_pct": 0.0, "hours_lost": 0.0}];
+
+        function getColor(pct) {
+            if (pct <= 2) return '#10b981'; // Green
+            if (pct <= 5) return '#f59e0b'; // Amber
+            if (pct <= 10) return '#f97316'; // Orange
+            return '#ef4444'; // Red
+        }
+
+        stations.forEach(st => {
+            const color = getColor(st.empty_pct);
+            const isCritical = st.empty_pct > 10;
+            
+            // Marker base radius
+            let radius = 4 + (st.empty_pct / 2.5);
+            if (radius > 12) radius = 12;
+            if (radius < 4) radius = 4;
+            
+            // Add Marker
+            const marker = L.circleMarker([st.lat, st.lon], {
+                radius: radius,
+                fillColor: color,
+                color: isCritical ? '#fea5a5' : '#ffffff',
+                weight: isCritical ? 2 : 1,
+                opacity: 1,
+                fillOpacity: 0.9,
+            }).addTo(map);
+            
+            // Rich Popup
+            marker.bindPopup(`
+                <div style="font-family: 'Outfit'; min-width: 200px; padding: 12px;">
+                    <div style="font-size: 10px; text-transform:uppercase; color: #888; font-weight:700; margin-bottom:6px; letter-spacing:0.05em">ESTACIÓN</div>
+                    <div style="font-size: 15px; font-weight: 700; color: white; margin-bottom: 16px; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom:12px;">${st.name}</div>
+                    
+                    <div style="display:grid; grid-template-columns: 1fr 1fr; gap:12px;">
+                        <div>
+                            <div style="font-size:9px; color:#888; font-weight:600; margin-bottom:4px">TIEMPO VACÍA</div>
+                            <div style="font-size:18px; font-weight:700; color:${color}">${st.empty_pct.toFixed(1)}%</div>
+                        </div>
+                        <div>
+                            <div style="font-size:9px; color:#888; font-weight:600; margin-bottom:4px">PÉRDIDA ESTIMADA</div>
+                            <div style="font-size:18px; font-weight:700; color:#cbd5e1">${st.hours_lost.toFixed(1)}h</div>
+                        </div>
+                    </div>
+                </div>
+            `);
+        });
+    </script>
+</body>
+</html>
+    
