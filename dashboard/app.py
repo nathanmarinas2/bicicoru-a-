@@ -3,6 +3,13 @@ from pathlib import Path
 import streamlit as st
 from streamlit.components.v1 import html
 
+import sys
+
+# Add project root to Python path to fix 'src' module not found
+project_root = str(Path(__file__).resolve().parent.parent)
+if project_root not in sys.path:
+    sys.path.append(project_root)
+
 from src.utils.config import load_config
 
 BASE_DIR = Path(__file__).resolve().parents[1]
