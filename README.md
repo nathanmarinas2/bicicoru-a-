@@ -393,8 +393,8 @@ Diseñado para ser "Clone & Run". No requiere configuración compleja.
 ### 11.1 Paso 1: Setup del Entorno (2 min)
 Clona el repositorio e instala las dependencias exactas:
 ```bash
-git clone https://github.com/nathanmarinas2/bicicoru-a-.git
-cd bicicoru-a-
+git clone https://github.com/nathanmarinas2/bicicoruna-fleet-optimization.git
+cd bicicoruna-fleet-optimization
 pip install -r requirements.txt
 ```
 
