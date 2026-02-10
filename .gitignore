@@ -1,4 +1,51 @@
+# Dependencies
 node_modules/
+venv/
+__pycache__/
+*.pyc
+
+# Environment
 .env
+.env.local
+
+# Data - Exclusion Policy (Large files avoided)
+data/raw/*
+data/processed/*
 *.csv
+*.xlsx
+*.parquet
+*.pkl
+*.h5
+*.zip
+
+# Data - Whitelist (Professional Reproducibility)
+# 1. Main source data (Required to run the analysis)
+!data/coruna/tracking_data.csv
+!data/coruna/sistema.csv
+
+# 2. Auxiliary/External data (GeoJSONs, demographics, etc.)
+!data/external/*.csv
+!data/external/*.geojson
+
+# 3. Key Insights & Lightweight Results (For quick inspection)
+!data/processed/estaciones_clusters.csv
+!data/processed/ranking_nuevas_paradas.csv
+!data/processed/proyeccion_usuarios_2025_2026.csv
+!data/processed/informe_final_cientifico.csv
+
+# Logs
 *.log
+
+# IDE
+.vscode/
+.idea/
+
+# Temp files
+*.tmp
+check_*.py
+movidas.txt
+resultados.txt
+
+# OS
+.DS_Store
+Thumbs.db
