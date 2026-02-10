@@ -44,44 +44,84 @@ Este proyecto aborda el desafío de **gestionar la disponibilidad** en una red d
 
 ## 2. Arquitectura del Proyecto
 
-El sistema sigue un flujo de datos modular y reproducible:
+El sistema sigue un pipeline de datos modular y reproducible, desde la ingestión hasta la visualización:
 
-```
-[Fuente: API BiciCoruña] 
-       v (Scraper Node.js)
-[Datalake: CSV/Parquet] 
-       v (Pandas/NumPy)
-[Preprocesamiento & Feature Engineering]
-       v
-   ┌───────────────┬──────────────────┐
-   v               v                  v
-[Modelado ML]  [Clustering K-Means]  [Dashboard Web]
-(LightGBM)     (Scikit-Learn)        (Leaflet/HTML)
+```mermaid
+flowchart LR
+    subgraph Ingestión
+        A[API GBFS\nBiciCoruña] -->|cada 5 min| B[collector.js\nNode.js + Railway]
+        C[Open-Meteo\nAPI Clima] -->|histórico| D[extract_coruna.py]
+    end
+
+    subgraph Procesamiento
+        B --> E[(Data Lake\nCSV / Parquet)]
+        D --> E
+        E -->|Pandas / NumPy| F[Feature Engineering\ncyclic encoding, lags, weather]
+    end
+
+    subgraph Modelado
+        F --> G[LightGBM\nClasificador Binario]
+        F --> H[K-Means\nSegmentación K=4]
+        F --> I[Logistic Growth\nProyección Usuarios]
+    end
+
+    subgraph Output
+        G --> J[reports/\nMétricas & Figuras]
+        H --> J
+        I --> J
+        G --> K[Streamlit\nDashboard Interactivo]
+        H --> K
+    end
+
+    style A fill:#4CAF50,color:#fff
+    style C fill:#2196F3,color:#fff
+    style G fill:#FF9800,color:#fff
+    style K fill:#9C27B0,color:#fff
 ```
 
 ### 2.1 Características Clave
-*   **ETL Resiliente:** Scripts de recolección tolerantes a fallos y gaps de datos.
-*   **Pipeline Reproducible:** Scripts Python modulares para ETL, entrenamiento y generación de reportes.
-*   **Visualización Premium:** Mapas interactivos con estética "Dark Mode" para monitorización en tiempo real.
+| Capa | Componente | Descripción |
+|------|-----------|-------------|
+| **Ingestión** | `collector.js` | Scraper Node.js desplegado en Railway, tolerante a fallos y gaps de datos. Captura cada 5 min. |
+| **Config** | `config.yaml` | Configuración centralizada: umbrales, rutas, hiperparámetros. Un solo punto de verdad. |
+| **Feature Eng.** | `prepare_data.py` | Codificación cíclica (hora, día), lags temporales, features meteorológicas y de tendencia. |
+| **Modelado** | `classifier_final.py` | Transfer Learning (Barcelona → Coruña) + Fine-Tuning con early stopping. |
+| **Evaluación** | `src/evaluation/` | Análisis de negocio: ROI, riesgo operativo, optimización de flota, proyección de usuarios. |
+| **Dashboard** | `app.py` + HTML | Streamlit + Leaflet.js con estética dark mode para monitorización geoespacial. |
 
 ### 2.2 Estructura del Repositorio
 <details>
-<summary><strong>Ver Árbol de Directorios</strong></summary>
+<summary><strong>Ver Árbol de Directorios Completo</strong></summary>
 
 ```text
+bicicoru-a-/
+├── assets/                  # Recursos estáticos (GIFs, imágenes)
+├── collector.js             # ETL: Scraper de datos en tiempo real (Node.js)
+├── config.yaml              # Configuración global del proyecto
+├── package.json             # Dependencias Node.js del colector
+│
 ├── data/
-│   ├── coruna/         # Datos de telemetría de BiciCoruña
-│   ├── external/       # Datos históricos y externos
-│   └── processed/      # Datasets limpios y proyecciones
+│   ├── coruna/              # Datos crudos de telemetría BiciCoruña
+│   ├── external/            # Datos externos (Barcelona, clima)
+│   └── processed/           # Datasets limpios y proyecciones generadas
+│
 ├── src/
-│   ├── models/         # Entrenamiento y evaluación (LightGBM)
-│   ├── preprocessing/  # Limpieza y Feature Engineering
-│   ├── evaluation/     # Scripts de métricas de negocio y ROI
-│   ├── visualization/  # Generadores de mapas y gráficos
-│   └── utils/          # Configuración y helpers
-├── dashboard/          # Frontend (HTML/JS) para visualización web
-├── reports/            # Figuras y análisis generados
-└── README.md           # Documentación principal
+│   ├── preprocessing/       # Limpieza y Feature Engineering
+│   ├── models/              # Entrenamiento LightGBM y comparativas
+│   ├── evaluation/          # Métricas de negocio, ROI y clustering
+│   ├── visualization/       # Mapas interactivos y gráficos
+│   └── utils/               # Config loader y time-based split
+│
+├── models/                  # Artefactos entrenados (.txt, .joblib)
+├── dashboard/               # App Streamlit + mapas HTML (Leaflet)
+├── reports/
+│   ├── figures/             # Gráficos generados (PNG)
+│   └── resumen_analisis.txt # Resumen ejecutivo del análisis
+│
+├── requirements.txt         # Dependencias Python
+├── SETUP.md                 # Guía de despliegue del colector
+├── LICENSE                  # MIT License
+└── README.md                # Documentación principal
 ```
 </details>
 
