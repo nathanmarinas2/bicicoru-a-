@@ -47,6 +47,3 @@ def render_html(path, height=650):
 
 st.header("Mapa de flujos")
 render_html(DASHBOARD_DIR / "mapa_flujos.html", height=650)
-
-st.header("Timelapse semanal")
-render_html(DASHBOARD_DIR / "timelapse_semanal.html", height=700)

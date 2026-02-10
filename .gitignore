@@ -52,6 +52,7 @@ check_*.py
 movidas.txt
 resultados.txt
 tile_test.png
+reports/resumen_analisis.txt
 
 # OS
 .DS_Store

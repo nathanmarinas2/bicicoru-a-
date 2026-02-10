@@ -117,7 +117,6 @@ bicicoruna-fleet-optimization/
 ├── dashboard/               # App Streamlit + mapas HTML (Leaflet)
 ├── reports/
 │   ├── figures/             # Gráficos generados (PNG)
-│   └── resumen_analisis.txt # Resumen ejecutivo del análisis
 │
 ├── ANALYSIS_REPORT.md       # Reporte técnico detallado
 ├── MODEL_CARD.md            # Model Card (ML responsable)
@@ -422,7 +421,6 @@ streamlit run dashboard/app.py
 
 > **Output esperado:**
 > *   Modelo entrenado en `models/classifier_final.txt`
-> *   Reporte de negocio en `reports/resumen_analisis.txt`
 > *   Figuras de análisis en `reports/figures/`
 > *   Dashboard interactivo en `dashboard/mapa_flujos.html`
 
