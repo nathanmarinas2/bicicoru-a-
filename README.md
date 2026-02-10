@@ -94,7 +94,7 @@ flowchart LR
 <summary><strong>Ver Árbol de Directorios Completo</strong></summary>
 
 ```text
-bicicoru-a-/
+bicicoruna-fleet-optimization/
 ├── assets/                  # Recursos estáticos (GIFs, imágenes)
 ├── collector.js             # ETL: Scraper de datos en tiempo real (Node.js)
 ├── config.yaml              # Configuración global del proyecto
